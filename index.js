@@ -119,6 +119,18 @@ function RotationZ(a) {
           [0, 0, 0, 1]];
 }
 
+function median(vs, d) {
+  var m = [];
+  for (var i = 0; i < d; i++) {
+    m[i] = 0;
+    for (var j = 0; j < vs.length; j++) {
+      m[i] += vs[j][i];
+    };
+    m[i] = m[i]/d;
+  };
+  return m;
+}
+
 /*
   CCW check based on reflection parity, requires points to be in screen or ndc space.
 
@@ -170,10 +182,9 @@ function main() {
   renderer.position = [0,0,5];
 
   renderer.ccw_mode = "CCW_3D";
+  //renderer.marker_mode = false;
 
   renderer.init();
-
-  renderer.draw();
 
   window.requestAnimFrame(update, renderer.canvas);
 
@@ -189,7 +200,9 @@ function main() {
 
   //console.log(matrix_mul(m,m2));
 
-  console.log(vector_transform(m, [1,2,3]));
+  //console.log(vector_transform(m, [1,2,3]));
+
+  console.log(median([[1,2,3], [5,6,7]], 3));
 
   // renderer.canvas.onmousedown = function(ev) { 
   //   console.debug("click");
@@ -241,14 +254,15 @@ function update(){
 renderer.init = function(){
   this.aspect = this.canvas.width/this.canvas.height;
   // set defaults 
-  renderer.color = renderer.color || "#ffffff";
-  renderer.focal_distance = renderer.focal_distance || 1.0;
-  renderer.near_plane = renderer.near_plane || 1.0;
-  renderer.far_plane = renderer.far_plane || 1000.0;
-  renderer.indecies = renderer.indecies || [];
-  renderer.vertecies = renderer.vertecies || [];
-  renderer.rotation = renderer.rotation || [0,0,0];
-  renderer.position = renderer.position || [0,0,5];
+  this.color = this.color || "#ffffff";
+  this.focal_distance = this.focal_distance || 1.0;
+  this.near_plane = this.near_plane || 1.0;
+  this.far_plane = this.far_plane || 1000.0;
+  this.indecies = this.indecies || [];
+  this.vertecies = this.vertecies || [];
+  this.rotation = this.rotation || [0,0,0];
+  this.position = this.position || [0,0,5];
+  this.marker_mode = this.marker_mode == null;
 }
 
 renderer.clear = function(){
@@ -263,15 +277,24 @@ renderer.draw = function() {
   context.strokeStyle = this.color;
 
   for (var i = 0; i < this.indecies.length; i+=3) {
+    var culled = false;
+
     var triangle = [this.vertecies[this.indecies[i]].concat(1), 
                     this.vertecies[this.indecies[i+1]].concat(1), 
                     this.vertecies[this.indecies[i+2]].concat(1)];
     
     // apply model transformation matrix
     triangle = this.xform_object(triangle);
+    context.fillStyle = this.color;
 
-    if(this.ccw_mode == "CCW_3D" && !isCCW3D(triangle))
-      continue;
+    // calculate marker position
+    var marker;
+    if(this.marker_mode) {
+      marker = median(triangle, 3);
+      marker = this.xform_screen(this.xform_ndc([marker]))[0];
+    }
+
+    culled = culled || this.ccw_mode == "CCW_3D" && !isCCW3D(triangle);
 
     // convert points to clip space
     triangle = this.xform_ndc(triangle);
@@ -279,20 +302,28 @@ renderer.draw = function() {
     // convert points to screen space
     triangle = this.xform_screen(triangle);
 
-    if(this.ccw_mode != "CCW_3D" && !isCCW2D(triangle))
-      continue;
+    culled = culled || this.ccw_mode != "CCW_3D" && !isCCW2D(triangle); 
 
     // draw the triangle
-    var v1 = triangle[0];
-    var v2 = triangle[1];
-    var v3 = triangle[2]; 
-    context.beginPath();
-    context.moveTo(v1[0], v1[1]);
-    context.lineTo(v2[0], v2[1]);
-    context.lineTo(v3[0], v3[1]);
-    context.lineTo(v1[0], v1[1]);
-    context.lineWidth = 1; 
-    context.stroke();
+    if(!culled || this.marker_mode) {
+      var v1 = triangle[0];
+      var v2 = triangle[1];
+      var v3 = triangle[2]; 
+      context.beginPath();
+      context.moveTo(v1[0], v1[1]);
+      context.lineTo(v2[0], v2[1]);
+      context.lineTo(v3[0], v3[1]);
+      context.lineTo(v1[0], v1[1]);
+      context.lineWidth = 1; 
+      context.stroke();
+    }  
+    
+    if(this.marker_mode) {
+      context.fillStyle = culled ? "#ff0000" : this.color;
+      context.beginPath();
+      context.arc(marker[0],marker[1],2,0*Math.PI,2*Math.PI);
+      context.fill();
+    }
   };
 }
 
