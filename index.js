@@ -24,6 +24,10 @@ window.cancelRequestAnimFrame = (function() {
                                  window.clearTimeout;
                                  })();
 
+Array.prototype.clone = function() {
+  return this.slice(0);
+}
+
 /*
   Vector addition 
  */
@@ -34,6 +38,25 @@ Array.prototype.v_add_v = function(b) {
     c[i] = a[i] + b[i];
   }
   return c;
+};
+
+/*
+  Vector subtraction 
+ */
+Array.prototype.v_sub_v = function(b) {
+  var a = this;
+  var c = [];
+  for (var i = 0; i < a.length; i++) {
+    c[i] = a[i] - b[i];
+  }
+  return c;
+};
+
+/*
+  Vector scale 
+ */
+Array.prototype.v_scale = function(s) {
+  return map(function(a) { return a*s;}, this);
 };
 
 Array.prototype.m_cols = function(m) {
@@ -258,8 +281,12 @@ function load_model(url)
 }
 
 var renderer = new Object();
-
-var turn_table = new Object();
+var rotate = true;
+var dragging = false;
+var drag_start = [];
+var drag_vector = [];
+var rotation_base;
+var running = true;
 
 function main() {
   renderer.canvas = document.getElementById("main_canvas");
@@ -277,73 +304,43 @@ function main() {
   renderer.marker_mode = true;
 
   renderer.init();
-  renderer.draw();
+  
+  // setup drag events
+  document.getElementById("main_canvas").onmousedown = function(ev) { 
+    dragging = true;
+    drag_start = [ev.clientX, ev.clientY];
+    rotation_base = renderer.rotation.clone();
+  }
+
+  window.onmousemove = function(ev) {
+    if(dragging)
+    {
+      drag_vector = [ev.clientX, ev.clientY].v_sub_v(drag_start).v_scale(0.004);;
+      var rotation_x_old = renderer.rotation[0];
+      renderer.rotation[1] = rotation_base[1] - drag_vector[0];
+      renderer.rotation[0] = rotation_base[0] - drag_vector[1];
+      if(Math.abs(renderer.rotation[0]) > Math.PI/2) {
+        renderer.rotation[0] = rotation_x_old;
+      }
+    }
+  }
+
+  window.onmouseup = function(ev) {
+    if(dragging)
+      dragging = false;
+  }
+
   window.requestAnimFrame(update, renderer.canvas);
-
-  // var m = 
-  // [[2,0,0],
-  //  [0,2,0],
-  //  [0,0,2]];
-
-  // var m2 = 
-  // [[1,0,0],
-  //  [0,2,0],
-  //  [0,0,1]];
-
-  //  console.log(m.m_transpose());
-
-  //console.log(vector_transform(m, [1,2,3]));
-
-  // console.log(median([[1,2,3], [5,6,7]], 3));
-
-  // renderer.canvas.onmousedown = function(ev) { 
-  //   console.debug("click");
-  //   var canvas = document.getElementById("main_canvas");
-  //   var context = canvas.getContext("2d");
-
-  //   context.beginPath();
-  //   context.moveTo(10, 10);
-  //   context.lineTo(200, 200);
-  //   context.lineTo(100, 300);
-  //   context.lineWidth = 2;
-  //   context.strokeStyle = "#ffffff";
-  //   context.stroke();
-  // }
-
-  // main loop
-
-  // process input
-
-  // (animation) modify model matrix
-
-  // 
-
-  // apply projection matrix
-
-  // 
-
-
-
-  // console.debug(V1.e(1));
-//   var V2 = $V([9,-3,0]);
-
-//   var d = V1.dot(V2);
-// // d is 15
-
-// var c = V1.cross(V2);
-// // c is the vector (15,45,-45)
-
-  console.debug("Hello");
-}
-
-turn_table.update = function() {
-
 }
 
 function update(){
-  renderer.rotation = renderer.rotation.v_add_v([0.0,0.01,0.0]);
-  window.requestAnimFrame(update, renderer.canvas); 
+  if(rotate && !dragging) 
+    renderer.rotation = renderer.rotation.v_add_v([0.0,0.01,0.0]);
+  
   renderer.draw();
+
+  if(running)
+    window.requestAnimFrame(update, renderer.canvas); 
 }
 
 renderer.init = function(){
@@ -387,7 +384,7 @@ renderer.draw = function() {
   var RZ = RotationZ(this.rotation[2]);
   var T = Translation(this.position);
   var S = Scale(this.scale);
-  var M = T.m_mul_m(S).m_mul_m(RZ).m_mul_m(RY).m_mul_m(RX);
+  var M = T.m_mul_m(S).m_mul_m(RX).m_mul_m(RY).m_mul_m(RZ);
   var xform_object = function(v) {
     return M.m_mul_v([v[0], v[1], v[2], 1]);
   };
