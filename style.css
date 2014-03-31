@@ -1,4 +1,5 @@
 body {
+	background-color: #2D2D2D;
 	background-image:url('tile.jpg');
     background-repeat:repeat;
 }
@@ -13,7 +14,7 @@ canvas {
 .content {
 	/* dimensions */
 	max-width: 700px;
-	max-height: 400px;
+	
 
 	/* shadow */
 	-moz-box-shadow: 4px 4px 21px #000000;
@@ -21,12 +22,63 @@ canvas {
 	box-shadow: 4px 4px 21px #000000;
 
     /* center */
-	margin: auto; 
+	/*margin: auto; 
 	position: absolute;
-	top: 0; left: 0; bottom: 0; right: 0;
+	top: 0; left: 0; bottom: 0; right: 0;*/
 
     /* border */
     border:1px solid;
 	border-color: #6D6D6D;
 	border-radius:5px;
+
+	float: right;
+}
+
+.container {
+	max-width: 770px;
+	/*width : 770px;*/
+	max-height: 400px;
+
+    /* center */
+	margin: auto; 
+	position: absolute;
+	top: 0; left: -70; bottom: 0; right: 0;
+}
+
+.controls {
+    background-color: #2D2D2D;
+
+	width: 50px;
+	height: 100%;
+
+	/* shadow */
+	-moz-box-shadow: 4px 4px 21px #000000;
+	-webkit-box-shadow: 4px 4px 21px #000000;
+	box-shadow: 4px 4px 21px #000000;
+
+    /* border */
+    border:1px solid;
+	border-color: #6D6D6D;
+	border-radius:5px;
+
+	float: left;
+}
+
+input[type="checkbox"] + label {
+	color: #FFFFFF;
+}
+
+input[type="checkbox"] {
+    display:none;
+}
+
+input[type="checkbox"] + label span {
+    display:inline-block;
+    width:19px;
+    height:19px;
+    background:url(check_radio_sheet.png) left top no-repeat;
+}
+
+input[type="checkbox"]:checked + label span {
+    background:url(check_radio_sheet.png) -19px top no-repeat;
 }
