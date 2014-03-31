@@ -339,7 +339,7 @@ function main() {
   renderer.near_plane = 0.1;
   renderer.far_plane = 10.0;
 
-  var model = load_model("torus.json");
+  var model = load_model("cube.json");
   renderer.indecies = model.indecies;
   renderer.vertecies = model.vertecies;
   renderer.rotation = [-0.3,0,0];
