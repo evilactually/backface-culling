@@ -409,7 +409,6 @@ function main() {
         flash_message(renderer.marker_mode ? "Marking culled triangles" : "Hiding culled triangles")
         break
       case 'M':
-        console.log(model_ring.ModeValue());
         model_ring.Next()
         var model = load_model(model_ring.ModeValue());
         renderer.indecies = model.indecies;
