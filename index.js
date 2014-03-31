@@ -232,6 +232,9 @@ function Fallback(a, b) {
   return (typeof a !== 'undefined' && a !== null) ? a : b;
 }
 
+function to_char(i) {
+  return String.fromCharCode( i);
+}
 
 /*
   CCW check based on reflection parity, requires points to be in screen or ndc space.
@@ -280,6 +283,33 @@ function load_model(url)
   }
 }
 
+/* Data structure used to switch between modes */
+
+function ModeRing(values, messages)
+{
+  this.values = values
+  this.messages = messages
+  this.selection = 0
+}
+
+ModeRing.prototype.Next = function () {
+  this.selection = (this.selection + 1)  % this.values.length;
+}
+
+ModeRing.prototype.Previous = function () {
+  this.selection = (this.selection - 1) % this.values.length;
+  if(this.selection < 0)
+    this.selection = (this.values.length - 1)
+}
+
+ModeRing.prototype.ModeMessage = function () {
+  return this.messages[this.selection];
+}
+
+ModeRing.prototype.ModeValue = function () {
+  return this.values[this.selection];
+}
+
 var renderer = new Object();
 var rotate = true;
 var dragging = false;
@@ -288,23 +318,38 @@ var drag_vector = [];
 var rotation_base;
 var running = true;
 
+var flash_begin_time = -1;
+var flash_text = ""
+var flash_duration = 1500
+
+var CCW_MODES = ["CCW_2D", "CCW_3D", "NONE"]
+var CCW_MESSAGES = ["Back-face culling by reflection parity", 
+                    "Back-face culling by normal",
+                    "No back-face culling"]
+
+var MODEL_MODES = ["cube.json", "icosphere.json", "teaport.json", "torus.json"]
+var MODEL_MESSAGES = ["Cube", "Icosphere", "Teaport", "Torus"]
+
+var culling_mode_ring = new ModeRing(CCW_MODES, CCW_MESSAGES)
+var model_ring = new ModeRing(MODEL_MODES, MODEL_MESSAGES);
+
 function main() {
   renderer.canvas = document.getElementById("main_canvas");
   renderer.focal_distance = 1.0;
   renderer.near_plane = 0.1;
   renderer.far_plane = 10.0;
 
-  var model = load_model("cutcube.json");
+  var model = load_model("torus.json");
   renderer.indecies = model.indecies;
   renderer.vertecies = model.vertecies;
-  renderer.rotation = [0,0,0];
+  renderer.rotation = [-0.3,0,0];
   renderer.position = [0,0,5];
 
   renderer.ccw_mode = "CCW_2D";
-  renderer.marker_mode = false;
+  renderer.marker_mode = true;
 
   renderer.init();
-  
+
   // setup drag events
   document.getElementById("main_canvas").onmousedown = function(ev) { 
     dragging = true;
@@ -347,8 +392,54 @@ function main() {
   // IE 6/7/8 
   else canvas.attachEvent("onmousewheel", on_mouse_wheel_handler);
 
+  // setup mode switches
+  window.onkeydown = function(ev) {
+    switch (to_char(ev.keyCode)) {
+      case 'R':
+        rotate = !rotate
+        flash_message(rotate ? "Rotation On" : "Rotation Off")
+        break
+      case 'C':
+        culling_mode_ring.Next()
+        renderer.ccw_mode = culling_mode_ring.ModeValue()
+        flash_message(culling_mode_ring.ModeMessage());
+        break
+      case 'D':
+        renderer.marker_mode = !renderer.marker_mode
+        flash_message(renderer.marker_mode ? "Marking culled triangles" : "Hiding culled triangles")
+        break
+      case 'M':
+        console.log(model_ring.ModeValue());
+        model_ring.Next()
+        var model = load_model(model_ring.ModeValue());
+        renderer.indecies = model.indecies;
+        renderer.vertecies = model.vertecies;
+        flash_message(model_ring.ModeMessage())
+        break
+    }
+  }
+
   // start main loop
   window.requestAnimFrame(update, renderer.canvas);
+}
+
+/* Flashes a message on canvas for a few seconds */
+function flash_message(msg)
+{
+  flash_begin_time = (new Date()).getTime()
+  flash_text = msg
+}
+
+function draw_flash_message() {
+  var time_delta = (new Date()).getTime() - flash_begin_time 
+  if(time_delta > 0 && time_delta < flash_duration) {
+    var canvas = document.getElementById("main_canvas");
+    var context = canvas.getContext("2d");
+    context.fillStyle = "#ffffff";
+    context.textAlign = 'center';
+    context.font = "bold italic 14px sans-serif";
+    context.fillText(flash_text, canvas.width/2, canvas.height-20);
+  }
 }
 
 function draw_text_overlay()
@@ -357,9 +448,10 @@ function draw_text_overlay()
   var context = document.getElementById("main_canvas").getContext("2d");
   context.fillStyle = "#ffffff";
   context.font = "bold 12px sans-serif";
-  context.fillText("R - toggle rotation", 10, 20);
-  context.fillText("C - toggle culling method", 10, 40);
-  context.fillText("H - toggle hide culled faces", 10, 60);
+  context.textAlign = 'left';
+  context.fillText("R - rotation", 10, 20);
+  context.fillText("C - culling method", 10, 40);
+  context.fillText("D - display mode", 10, 60);
   context.fillText("M - switch model", 10, 80);
 }
 
@@ -369,6 +461,7 @@ function update(){
   
   renderer.draw();
   draw_text_overlay();
+  draw_flash_message();
 
   if(running)
     window.requestAnimFrame(update, renderer.canvas); 
@@ -461,7 +554,7 @@ renderer.draw = function() {
     // convert points to screen space
     triangle = map(xform_screen, triangle);
 
-    if(this.ccw_mode != "CCW_3D") {
+    if(this.ccw_mode == "CCW_2D") {
       culled = !isCCW2D(triangle);
     }
 
@@ -488,5 +581,3 @@ renderer.draw = function() {
     }
   };
 }
-
-
