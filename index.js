@@ -8,7 +8,7 @@ window.requestAnimFrame = (function() {
    window.oRequestAnimationFrame ||
    window.msRequestAnimationFrame ||
    function(/* function FrameRequestCallback */ callback, /* DOMElement Element */ element) {
-     return window.setTimeout(callback, 1000/60);
+     return window.setTimeout(callback, 1000/30);
    };
  })();
 
@@ -290,18 +290,18 @@ var running = true;
 
 function main() {
   renderer.canvas = document.getElementById("main_canvas");
-  renderer.focal_distance = 1;
-  renderer.near_plane = 1.0;
+  renderer.focal_distance = 1.0;
+  renderer.near_plane = 0.1;
   renderer.far_plane = 10.0;
 
-  var model = load_model("cube.json");
+  var model = load_model("cutcube.json");
   renderer.indecies = model.indecies;
   renderer.vertecies = model.vertecies;
   renderer.rotation = [0,0,0];
   renderer.position = [0,0,5];
 
-  renderer.ccw_mode = "CCW_3D";
-  renderer.marker_mode = true;
+  renderer.ccw_mode = "CCW_2D";
+  renderer.marker_mode = false;
 
   renderer.init();
   
@@ -330,7 +330,37 @@ function main() {
       dragging = false;
   }
 
+  // zoom
+  var on_mouse_wheel_handler = function(ev) {
+    var firefox_scale = (-ev.detail)/50;
+    var normal_scale = (ev.wheelDelta)/4000;
+    renderer.scale += (normal_scale || firefox_scale);
+  }
+
+  var canvas = document.getElementById("main_canvas");
+  if (canvas.addEventListener) { 
+    // IE9, Chrome, Safari, Opera 
+    canvas.addEventListener("mousewheel", on_mouse_wheel_handler, false); 
+    // Firefox 
+    canvas.addEventListener("DOMMouseScroll", on_mouse_wheel_handler, false); 
+  } 
+  // IE 6/7/8 
+  else canvas.attachEvent("onmousewheel", on_mouse_wheel_handler);
+
+  // start main loop
   window.requestAnimFrame(update, renderer.canvas);
+}
+
+function draw_text_overlay()
+{
+  // draw key legend
+  var context = document.getElementById("main_canvas").getContext("2d");
+  context.fillStyle = "#ffffff";
+  context.font = "bold 12px sans-serif";
+  context.fillText("R - toggle rotation", 10, 20);
+  context.fillText("C - toggle culling method", 10, 40);
+  context.fillText("H - toggle hide culled faces", 10, 60);
+  context.fillText("M - switch model", 10, 80);
 }
 
 function update(){
@@ -338,6 +368,7 @@ function update(){
     renderer.rotation = renderer.rotation.v_add_v([0.0,0.01,0.0]);
   
   renderer.draw();
+  draw_text_overlay();
 
   if(running)
     window.requestAnimFrame(update, renderer.canvas); 
@@ -426,7 +457,7 @@ renderer.draw = function() {
     
     // convert points to clip space
     triangle = map(xform_ndc, triangle);
-
+    
     // convert points to screen space
     triangle = map(xform_screen, triangle);
 
