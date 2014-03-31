@@ -327,8 +327,8 @@ var CCW_MESSAGES = ["Back-face culling by reflection parity",
                     "Back-face culling by normal",
                     "No back-face culling"]
 
-var MODEL_MODES = ["cube.json", "icosphere.json", "teaport.json", "torus.json"]
-var MODEL_MESSAGES = ["Cube", "Icosphere", "Teaport", "Torus"]
+var MODEL_MODES = ["cube.json", "icosphere.json", "teaport.json", "torus.json", "monkey.json"]
+var MODEL_MESSAGES = ["Cube", "Icosphere", "Teaport", "Torus", "Blender's Monkey"]
 
 var culling_mode_ring = new ModeRing(CCW_MODES, CCW_MESSAGES)
 var model_ring = new ModeRing(MODEL_MODES, MODEL_MESSAGES);
