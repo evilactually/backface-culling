@@ -37,3 +37,7 @@ canvas {
 
 	float: right;
 }
+
+canvas {
+  	border-radius:5px;	
+}
