@@ -225,15 +225,8 @@ function map(f, xs) {
     return xs_out;
 }
 
-/*
-  Return fall-back value if first value is undefined or null
-*/
-function Fallback(a, b) {
-  return (typeof a !== 'undefined' && a !== null) ? a : b;
-}
-
 function to_char(i) {
-  return String.fromCharCode( i);
+  return String.fromCharCode(i);
 }
 
 /*
@@ -351,23 +344,10 @@ function main() {
   renderer.init();
 
   // setup drag events
-  document.getElementById("main_canvas").onmousedown = function(ev) { 
+  renderer.canvas.onmousedown = function(ev) { 
     dragging = true;
     drag_start = [ev.clientX, ev.clientY];
     rotation_base = renderer.rotation.clone();
-  }
-
-  window.onmousemove = function(ev) {
-    if(dragging)
-    {
-      drag_vector = [ev.clientX, ev.clientY].v_sub_v(drag_start).v_scale(0.004);;
-      var rotation_x_old = renderer.rotation[0];
-      renderer.rotation[1] = rotation_base[1] - drag_vector[0];
-      renderer.rotation[0] = rotation_base[0] - drag_vector[1];
-      if(Math.abs(renderer.rotation[0]) > Math.PI/2) {
-        renderer.rotation[0] = rotation_x_old;
-      }
-    }
   }
 
   window.onmouseup = function(ev) {
@@ -382,15 +362,14 @@ function main() {
     renderer.scale += (normal_scale || firefox_scale);
   }
 
-  var canvas = document.getElementById("main_canvas");
-  if (canvas.addEventListener) { 
+  if (renderer.canvas.addEventListener) { 
     // IE9, Chrome, Safari, Opera 
-    canvas.addEventListener("mousewheel", on_mouse_wheel_handler, false); 
+    renderer.canvas.addEventListener("mousewheel", on_mouse_wheel_handler, false); 
     // Firefox 
-    canvas.addEventListener("DOMMouseScroll", on_mouse_wheel_handler, false); 
+    renderer.canvas.addEventListener("DOMMouseScroll", on_mouse_wheel_handler, false); 
   } 
   // IE 6/7/8 
-  else canvas.attachEvent("onmousewheel", on_mouse_wheel_handler);
+  else renderer.canvas.attachEvent("onmousewheel", on_mouse_wheel_handler);
 
   // setup mode switches
   window.onkeydown = function(ev) {
@@ -421,6 +400,19 @@ function main() {
   // start main loop
   window.requestAnimFrame(update, renderer.canvas);
 }
+
+window.onmousemove = function(ev) {
+    if(dragging)
+    {
+      drag_vector = [ev.clientX, ev.clientY].v_sub_v(drag_start).v_scale(0.004);;
+      var rotation_x_old = renderer.rotation[0];
+      renderer.rotation[1] = rotation_base[1] - drag_vector[0];
+      renderer.rotation[0] = rotation_base[0] - drag_vector[1];
+      if(Math.abs(renderer.rotation[0]) > Math.PI/2) {
+        renderer.rotation[0] = rotation_x_old;
+      }
+    }
+  }
 
 /* Flashes a message on canvas for a few seconds */
 function flash_message(msg)
@@ -469,18 +461,18 @@ function update(){
 renderer.init = function(){
   this.aspect = this.canvas.width/this.canvas.height;
   // set defaults 
-  this.color = Fallback(this.color, "#ffffff");
-  this.focal_distance = Fallback(this.focal_distance, 1.0);
-  this.near_plane = Fallback(this.near_plane, 1.0);
-  this.far_plane = Fallback(this.far_plane, 1000.0);
-  this.indecies = Fallback(this.indecies, []);
-  this.vertecies = Fallback(this.vertecies, []);
-  this.rotation = Fallback(this.rotation, [0,0,0]);
-  this.position = Fallback(this.position, [0,0,5]);
-  this.scale = Fallback(this.scale, 1.0);
-  this.marker_mode = Fallback(this.marker_mode, true);
-  this.marker_culled_color = Fallback(this.marker_culled_color, "#ff0000");
-  this.marker_non_culled_color = Fallback(this.marker_non_culled_color, "#ffffff");
+  this.color = this.color || "#ffffff";
+  this.focal_distance = this.focal_distance || 1.0;
+  this.near_plane = this.near_plane || 1.0;
+  this.far_plane = this.far_plane || 1000.0;
+  this.indecies = this.indecies || [];
+  this.vertecies = this.vertecies || [];
+  this.rotation = this.rotation || [0,0,0];
+  this.position = this.position || [0,0,5];
+  this.scale = this.scale || 1.0;
+  this.marker_mode = this.marker_mode || true;
+  this.marker_culled_color = this.marker_culled_color || "#ff0000";
+  this.marker_non_culled_color = this.marker_non_culled_color || "#ffffff";
 }
 
 renderer.clear = function(){
@@ -488,13 +480,16 @@ renderer.clear = function(){
   context.clearRect(0, 0, this.canvas.width, this.canvas.height);
 }
 
-renderer.draw = function() {
-  var d = this.focal_distance;
-  var np = this.near_plane;
-  var fp = this.far_plane;
-  var a = this.aspect;
+/* Convert vertex to Normalized Device Coordinates (or clip space)
+   Essentially this function distorts a frustum of arbitrary dimensions 
+   into a neat cube -1 to 1 on all sides. This makes it easier to convert 
+   to screen space later. No actual clipping is performed in this demo. */
+renderer.xform_ndc = function(v) {
+    var d = renderer.focal_distance;
+    var np = renderer.near_plane;
+    var fp = renderer.far_plane;
+    var a = renderer.aspect;
 
-  var xform_ndc = function(v) {
     var x = v[0];
     var y = v[1];
     var z = v[2];
@@ -502,23 +497,30 @@ renderer.draw = function() {
     return out;
   };
 
-  var RX = RotationX(this.rotation[0]);
-  var RY = RotationY(this.rotation[1]);
-  var RZ = RotationZ(this.rotation[2]);
-  var T = Translation(this.position);
-  var S = Scale(this.scale);
-  var M = T.m_mul_m(S).m_mul_m(RX).m_mul_m(RY).m_mul_m(RZ);
-  var xform_object = function(v) {
+/* Apply object transformation to vertex */
+renderer.xform_object = function(v) {
+    var RX = RotationX(renderer.rotation[0]);
+    var RY = RotationY(renderer.rotation[1]);
+    var RZ = RotationZ(renderer.rotation[2]);
+    var T = Translation(renderer.position);
+    var S = Scale(renderer.scale);
+    var M = T.m_mul_m(S).m_mul_m(RX).m_mul_m(RY).m_mul_m(RZ);
+
     return M.m_mul_v([v[0], v[1], v[2], 1]);
-  };
-  
-  var w = this.canvas.width;
-  var h = this.canvas.height;
-  var xform_screen = function(v) {
-    return [w/2 + v[0]*w, h/2 - v[1]*h, v[2]];
-  };                   //     ^
-                       //     |_ This is the reflection in screen space - 
-                       //        that's why CCW2D expects a single reflection
+  };                                //  ^
+                                    //  |_ Padding with 1 to convert vector to homogeneous coordinates
+
+/* Transform vector from ndc space to screen space */
+renderer.xform_screen = function(v) {
+  var w = renderer.canvas.width;
+  var h = renderer.canvas.height;
+
+  return [w/2 + v[0]*w, h/2 - v[1]*h, v[2]];
+};                   //     ^
+                     //     |_ This is the reflection in screen space - 
+                     //        that's why CCW2D expects a single reflection             
+
+renderer.draw = function() {
 
   // clear canvas
   this.clear();
@@ -534,13 +536,13 @@ renderer.draw = function() {
                     this.vertecies[this.indecies[i+2]]];
  
     // apply model transformation matrix
-    triangle = map(xform_object, triangle);
+    triangle = map(this.xform_object, triangle);
 
     // calculate marker position
     var marker;
     if(this.marker_mode) {
       marker = median(triangle, 3);
-      marker = xform_screen(xform_ndc(marker));
+      marker = this.xform_screen(this.xform_ndc(marker));
     }
 
     if(this.ccw_mode == "CCW_3D") {
@@ -548,10 +550,10 @@ renderer.draw = function() {
     }
     
     // convert points to clip space
-    triangle = map(xform_ndc, triangle);
+    triangle = map(this.xform_ndc, triangle);
     
     // convert points to screen space
-    triangle = map(xform_screen, triangle);
+    triangle = map(this.xform_screen, triangle);
 
     if(this.ccw_mode == "CCW_2D") {
       culled = !isCCW2D(triangle);
